@@ -26,14 +26,38 @@ import javax.crypto.spec.IvParameterSpec;
 public class CryptoUtils {
     public static final String KEY_STORE_TYPE = "AndroidKeyStore";
 
-    public static void deleteKey(String alias) {
+    private static KeyStore getKeyStore() {
+        try {
+            KeyStore keyStore = KeyStore.getInstance(KEY_STORE_TYPE);
+            keyStore.load(null);
+            return keyStore;
+        } catch (KeyStoreException | CertificateException | IOException | NoSuchAlgorithmException e) {
+            e.printStackTrace();
+        }
+        return null;
+    }
+
+    public static boolean hasKey(String alias) {
+        try {
+            KeyStore keyStore = KeyStore.getInstance(KEY_STORE_TYPE);
+            keyStore.load(null);
+            return keyStore.containsAlias(alias) && keyStore.isKeyEntry(alias);
+        } catch (KeyStoreException | CertificateException | IOException | NoSuchAlgorithmException e) {
+            e.printStackTrace();
+        }
+        return false;
+    }
+
+    public static boolean deleteKey(String alias) {
         try {
             KeyStore keyStore = KeyStore.getInstance(KEY_STORE_TYPE);
             keyStore.load(null);
             keyStore.deleteEntry(alias);
+            return true;
         } catch (KeyStoreException | CertificateException | IOException | NoSuchAlgorithmException e) {
             e.printStackTrace();
         }
+        return false;
     }
 
     /**

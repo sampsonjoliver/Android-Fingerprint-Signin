@@ -1,6 +1,8 @@
 package com.fingerprint.sampsonjoliver.fingerprintcryptospike;
 
+import android.Manifest;
 import android.app.FragmentManager;
+import android.app.KeyguardManager;
 import android.content.Context;
 import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
@@ -41,14 +43,35 @@ public class FingerprintUtils {
         return instance;
     }
 
-    public boolean hasFingerprintHardwareSupport() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+    public boolean hasHardwareSupport() {
+        if (hasApiSupport()) {
+            if (BuildConfig.DEBUG)
+                return true;
             return context.getPackageManager().hasSystemFeature(PackageManager.FEATURE_FINGERPRINT);
         }
         return false;
     }
 
-    public void encrypt(FragmentManager fragmentManager, final String alias, final String data, final CryptoCallbacks callbacks) {
+    public boolean hasSecureKeyguard() {
+        return context.getSystemService(KeyguardManager.class).isKeyguardSecure();
+    }
+
+    public boolean hasApiSupport() {
+        return (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M);
+    }
+
+    public boolean hasPermissionsGranted() {
+        return context.checkSelfPermission(Manifest.permission.USE_FINGERPRINT) == PackageManager.PERMISSION_GRANTED;
+    }
+
+    @SuppressWarnings("all")
+    public boolean isFingerprintAuthAvailable() {
+        FingerprintManager fingerprintManager = context.getSystemService(FingerprintManager.class);
+        return fingerprintManager.isHardwareDetected()
+                && fingerprintManager.hasEnrolledFingerprints();
+    }
+
+    public void encrypt(FragmentManager fragmentManager, final String alias, final String data, final ICryptoAuthListener callbacks) {
         try {
             final Cipher cipher = CryptoUtils.getCipher();
             CryptoUtils.createKey(alias);
@@ -58,7 +81,7 @@ public class FingerprintUtils {
                 writeIv(alias, iv);
 
                 // Show the dialog
-                signCryptoWithFingerprint(fragmentManager, cipher, new SimpleCallbacks() {
+                signCryptoWithFingerprint(fragmentManager, cipher, new IFingerprintResultListener() {
                     @Override
                     public void onSuccess() {
                         try {
@@ -81,7 +104,7 @@ public class FingerprintUtils {
         }
     }
 
-    public void decrypt(FragmentManager fragmentManager, String alias, final CryptoCallbacks callbacks) {
+    public void decrypt(FragmentManager fragmentManager, String alias, final ICryptoAuthListener callbacks) {
         try {
             final Cipher cipher = CryptoUtils.getCipher();
             final byte[] iv = readIv(alias);
@@ -89,7 +112,7 @@ public class FingerprintUtils {
             if (CryptoUtils.initCipher(cipher, alias, Cipher.DECRYPT_MODE, iv)) {
                 final byte[] encryptedPassword = readEncryptedPassword(alias);
 
-                signCryptoWithFingerprint(fragmentManager, cipher, new FingerprintUtils.SimpleCallbacks() {
+                signCryptoWithFingerprint(fragmentManager, cipher, new IFingerprintResultListener() {
                     @Override
                     public void onSuccess() {
                         try {
@@ -112,7 +135,7 @@ public class FingerprintUtils {
         }
     }
 
-    private void signCryptoWithFingerprint(FragmentManager manager, Cipher cipher, FingerprintUtils.SimpleCallbacks callback) {
+    private void signCryptoWithFingerprint(FragmentManager manager, Cipher cipher, IFingerprintResultListener callback) {
         FingerprintManager.CryptoObject cryptoObject = new FingerprintManager.CryptoObject(cipher);
         FingerprintAuthenticationDialogFragment fragment = new FingerprintAuthenticationDialogFragment();
         fragment.setCryptoObject(cryptoObject);
@@ -142,34 +165,32 @@ public class FingerprintUtils {
         return Base64.decode(base64EncryptedPassword, Base64.DEFAULT);
     }
 
-    public interface CryptoCallbacks {
+    public interface ICryptoAuthListener {
         void onEncrypted(String cryptoResult);
         void onDecrypted(String cryptoResult);
         void onFailure();
         void onKeystoreInvalidated();
     }
 
-    public interface SimpleCallbacks {
+    public interface IFingerprintResultListener {
         void onSuccess();
     }
 
-    public interface Callbacks {
-        void onStartedScan();
-        void onAuthenticated();
-        void onUnrecognised();
-        void onUnrecoverableError(String message);
-        void onRecoverableError(String message);
+    public interface IFingerprintListener {
+        void onScanStarted();
+        void onScanFinished(boolean isRecognised);
+        void onError(boolean isRecoverable, String message);
     }
 
     public static class FingerprintHelper extends FingerprintManager.AuthenticationCallback {
-        private final Callbacks callback;
+        private final IFingerprintListener callback;
         private final FingerprintManager fingerprintManager;
         private CancellationSignal cancellationSignal;
 
         @VisibleForTesting
         boolean mSelfCancelled;
 
-        public FingerprintHelper(Callbacks callback, Context context) {
+        public FingerprintHelper(IFingerprintListener callback, Context context) {
             this.callback = callback;
             this.fingerprintManager = context.getSystemService(FingerprintManager.class);
         }
@@ -180,7 +201,7 @@ public class FingerprintUtils {
             cancellationSignal = new CancellationSignal();
             mSelfCancelled = false;
             fingerprintManager.authenticate(cryptoObject, cancellationSignal, 0, this, null);
-            callback.onStartedScan();
+            callback.onScanStarted();
         }
 
         public void stopListening() {
@@ -194,24 +215,23 @@ public class FingerprintUtils {
         @Override
         public void onAuthenticationError(int errMsgId, CharSequence errString) {
             if (!mSelfCancelled) {
-                callback.onUnrecoverableError(errString.toString());
+                callback.onError(false, errString.toString());
             }
         }
 
         @Override
         public void onAuthenticationHelp(int helpMsgId, CharSequence helpString) {
-            callback.onRecoverableError(helpString.toString());
+            callback.onError(true, helpString.toString());
         }
 
         @Override
         public void onAuthenticationFailed() {
-            callback.onUnrecognised();
+            callback.onScanFinished(false);
         }
 
         @Override
         public void onAuthenticationSucceeded(FingerprintManager.AuthenticationResult result) {
-            callback.onAuthenticated();
+            callback.onScanFinished(true);
         }
-
     }
 }

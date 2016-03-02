@@ -33,7 +33,7 @@ import android.widget.TextView;
  * A dialog which uses fingerprint APIs to authenticate the user, and falls back to password
  * authentication if fingerprint is not available.
  */
-public class FingerprintAuthenticationDialogFragment extends DialogFragment implements FingerprintUtils.Callbacks {
+public class FingerprintAuthenticationDialogFragment extends DialogFragment implements FingerprintUtils.IFingerprintListener {
     @VisibleForTesting static final long ERROR_TIMEOUT_MILLIS = 1600;
     @VisibleForTesting static final long SUCCESS_DELAY_MILLIS = 1300;
 
@@ -41,7 +41,7 @@ public class FingerprintAuthenticationDialogFragment extends DialogFragment impl
 
     private FingerprintManager.CryptoObject mCryptoObject;
 
-    private FingerprintUtils.SimpleCallbacks listener;
+    private FingerprintUtils.IFingerprintResultListener listener;
     private FingerprintUtils.FingerprintHelper fingerprintHelper;
 
     private ImageView icon;
@@ -95,51 +95,37 @@ public class FingerprintAuthenticationDialogFragment extends DialogFragment impl
          this.mCryptoObject = mCryptoObject;
      }
 
-    public void setListener(FingerprintUtils.SimpleCallbacks listener) {
+    public void setListener(FingerprintUtils.IFingerprintResultListener listener) {
         this.listener = listener;
     }
 
     @Override
-    public void onStartedScan() {
+    public void onScanStarted() {
         icon.setImageResource(R.drawable.ic_fp_40px);
         status.setText("Touch sensor");
     }
 
     @Override
-    public void onAuthenticated() {
-        icon.setImageResource(R.drawable.ic_fingerprint_success);
-        status.setText("Fingerprint recognised");
+    public void onScanFinished(boolean isRecognised) {
+        icon.setImageResource(isRecognised ? R.drawable.ic_fingerprint_success : R.drawable.ic_fingerprint_error);
+        status.setText(isRecognised ? "Fingerprint recognised" : "Fingerprint not recognized. Try again");
         if (getView() != null) {
-            getView().postDelayed(new Runnable() {
-                @Override
-                public void run() {
-                    listener.onSuccess();
-                    dismiss();
-                }
-            }, SUCCESS_DELAY_MILLIS);
+            if (isRecognised) {
+                getView().postDelayed(new Runnable() {
+                    @Override
+                    public void run() {
+                        listener.onSuccess();
+                        dismiss();
+                    }
+                }, SUCCESS_DELAY_MILLIS);
+            } else {
+                getView().postDelayed(mResetErrorTextRunnable, ERROR_TIMEOUT_MILLIS);
+            }
         }
     }
 
     @Override
-    public void onUnrecognised() {
-        icon.setImageResource(R.drawable.ic_fingerprint_error);
-        status.setText("Fingerprint not recognized. Try again");
-        if (getView() != null) {
-            getView().postDelayed(mResetErrorTextRunnable, ERROR_TIMEOUT_MILLIS);
-        }
-    }
-
-    @Override
-    public void onUnrecoverableError(String message) {
-        icon.setImageResource(R.drawable.ic_fingerprint_error);
-        status.setText(message);
-        if (getView() != null) {
-            getView().postDelayed(mResetErrorTextRunnable, ERROR_TIMEOUT_MILLIS);
-        }
-    }
-
-    @Override
-    public void onRecoverableError(String message) {
+    public void onError(boolean isRecoverable, String message) {
         icon.setImageResource(R.drawable.ic_fingerprint_error);
         status.setText(message);
         if (getView() != null) {
