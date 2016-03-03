@@ -38,7 +38,8 @@ public class FingerprintScanDialog extends DialogFragment implements Fingerprint
     protected static final long ERROR_TIMEOUT_MILLIS = 1600;
     protected static final long SUCCESS_DELAY_MILLIS = 1300;
 
-    protected String title;
+    protected String titleText;
+    protected String descriptionText;
     protected String scanText;
     protected String scanSuccessText;
     protected String scanFailedText;
@@ -50,11 +51,13 @@ public class FingerprintScanDialog extends DialogFragment implements Fingerprint
 
     private ImageView icon;
     private TextView status;
+    private TextView desc;
 
-    public static FingerprintScanDialog newInstance(String title, String scanText, String scanSuccessText, String scanFailedText, IFingerprintScanListener listener) {
+    public static FingerprintScanDialog newInstance(String title, String descriptionText, String scanText, String scanSuccessText, String scanFailedText, IFingerprintScanListener listener) {
         FingerprintScanDialog dialog = new FingerprintScanDialog();
 
-        dialog.setTitle(title);
+        dialog.setTitleText(title);
+        dialog.setDescriptionText(descriptionText);
         dialog.setScanText(scanText);
         dialog.setScanSuccessText(scanSuccessText);
         dialog.setScanFailedText(scanFailedText);
@@ -63,8 +66,12 @@ public class FingerprintScanDialog extends DialogFragment implements Fingerprint
         return dialog;
     }
 
-    public void setTitle(String title) {
-        this.title = title;
+    public void setTitleText(String titleText) {
+        this.titleText = titleText;
+    }
+
+    public void setDescriptionText(String descText) {
+        this.descriptionText = descText;
     }
 
     public void setScanText(String scanText) {
@@ -91,12 +98,14 @@ public class FingerprintScanDialog extends DialogFragment implements Fingerprint
 
     @Override
     public View onCreateView(LayoutInflater inflater, ViewGroup container, Bundle savedInstanceState) {
-        getDialog().setTitle(title);
+        getDialog().setTitle(titleText);
 
         View view = inflater.inflate(R.layout.dialog_fingerprint_scan, container, false);
 
         icon = (ImageView) view.findViewById(R.id.fingerprint_icon);
         status = (TextView) view.findViewById(R.id.fingerprint_status);
+        desc = (TextView) view.findViewById(R.id.fingerprint_description);
+        desc.setText(descriptionText);
 
         return view;
     }

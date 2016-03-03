@@ -149,7 +149,11 @@ public class FingerprintUtils {
     private void signCryptoWithFingerprint(FragmentManager manager, Cipher cipher, FingerprintScanDialog.IFingerprintScanListener callback) {
         FingerprintManager.CryptoObject cryptoObject = new FingerprintManager.CryptoObject(cipher);
         FingerprintScanDialog fragment = FingerprintScanDialog.newInstance(
-                "Scan Fingerprint", "Touch sensor", "Fingerprint recognised", "Fingerprint not recognised. Try again.",
+                "Scan Fingerprint",
+                "Confirm fingerprint to continue",
+                "Touch sensor",
+                "Fingerprint recognised",
+                "Fingerprint not recognised. Try again.",
                 callback
         );
         fragment.setCryptoObject(cryptoObject);
