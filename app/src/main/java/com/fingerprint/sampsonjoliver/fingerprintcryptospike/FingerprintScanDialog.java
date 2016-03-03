@@ -21,7 +21,6 @@ import android.app.DialogFragment;
 import android.content.pm.PackageManager;
 import android.hardware.fingerprint.FingerprintManager;
 import android.os.Bundle;
-import android.support.annotation.VisibleForTesting;
 import android.support.v4.app.ActivityCompat;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -33,19 +32,52 @@ import android.widget.TextView;
  * A dialog which uses fingerprint APIs to authenticate the user, and falls back to password
  * authentication if fingerprint is not available.
  */
-public class FingerprintAuthenticationDialogFragment extends DialogFragment implements FingerprintUtils.IFingerprintListener {
-    @VisibleForTesting static final long ERROR_TIMEOUT_MILLIS = 1600;
-    @VisibleForTesting static final long SUCCESS_DELAY_MILLIS = 1300;
-
+public class FingerprintScanDialog extends DialogFragment implements FingerprintUtils.IFingerprintListener {
     public static final String TAG = "FPAuthDialog";
 
-    private FingerprintManager.CryptoObject mCryptoObject;
+    protected static final long ERROR_TIMEOUT_MILLIS = 1600;
+    protected static final long SUCCESS_DELAY_MILLIS = 1300;
 
-    private FingerprintUtils.IFingerprintResultListener listener;
+    protected String title;
+    protected String scanText;
+    protected String scanSuccessText;
+    protected String scanFailedText;
+
+    private FingerprintManager.CryptoObject cryptoObject;
+
+    private IFingerprintScanListener listener;
     private FingerprintUtils.FingerprintHelper fingerprintHelper;
 
     private ImageView icon;
     private TextView status;
+
+    public static FingerprintScanDialog newInstance(String title, String scanText, String scanSuccessText, String scanFailedText, IFingerprintScanListener listener) {
+        FingerprintScanDialog dialog = new FingerprintScanDialog();
+
+        dialog.setTitle(title);
+        dialog.setScanText(scanText);
+        dialog.setScanSuccessText(scanSuccessText);
+        dialog.setScanFailedText(scanFailedText);
+        dialog.listener = listener;
+
+        return dialog;
+    }
+
+    public void setTitle(String title) {
+        this.title = title;
+    }
+
+    public void setScanText(String scanText) {
+        this.scanText = scanText;
+    }
+
+    public void setScanSuccessText(String scanSuccessText) {
+        this.scanSuccessText = scanSuccessText;
+    }
+
+    public void setScanFailedText(String scanFailedText) {
+        this.scanFailedText = scanFailedText;
+    }
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
@@ -59,7 +91,7 @@ public class FingerprintAuthenticationDialogFragment extends DialogFragment impl
 
     @Override
     public View onCreateView(LayoutInflater inflater, ViewGroup container, Bundle savedInstanceState) {
-        getDialog().setTitle("Fingerprint Dialog");
+        getDialog().setTitle(title);
 
         View view = inflater.inflate(R.layout.dialog_fingerprint_scan, container, false);
 
@@ -72,7 +104,7 @@ public class FingerprintAuthenticationDialogFragment extends DialogFragment impl
     @Override
     public void onResume() {
         super.onResume();
-        startListening(mCryptoObject);
+        startListening(cryptoObject);
     }
 
     @Override
@@ -92,23 +124,23 @@ public class FingerprintAuthenticationDialogFragment extends DialogFragment impl
     }
 
      public void setCryptoObject(FingerprintManager.CryptoObject mCryptoObject) {
-         this.mCryptoObject = mCryptoObject;
+         this.cryptoObject = mCryptoObject;
      }
 
-    public void setListener(FingerprintUtils.IFingerprintResultListener listener) {
+    public void setListener(IFingerprintScanListener listener) {
         this.listener = listener;
     }
 
     @Override
     public void onScanStarted() {
         icon.setImageResource(R.drawable.ic_fp_40px);
-        status.setText("Touch sensor");
+        status.setText(scanText);
     }
 
     @Override
     public void onScanFinished(boolean isRecognised) {
         icon.setImageResource(isRecognised ? R.drawable.ic_fingerprint_success : R.drawable.ic_fingerprint_error);
-        status.setText(isRecognised ? "Fingerprint recognised" : "Fingerprint not recognized. Try again");
+        status.setText(isRecognised ? scanSuccessText : scanFailedText);
         if (getView() != null) {
             if (isRecognised) {
                 getView().postDelayed(new Runnable() {
@@ -136,8 +168,12 @@ public class FingerprintAuthenticationDialogFragment extends DialogFragment impl
     Runnable mResetErrorTextRunnable = new Runnable() {
         @Override
         public void run() {
-            status.setText("Touch sensor");
+            status.setText(scanText);
             icon.setImageResource(R.drawable.ic_fp_40px);
         }
     };
+
+    public interface IFingerprintScanListener {
+        void onSuccess();
+    }
 }

@@ -71,6 +71,10 @@ public class FingerprintUtils {
                 && fingerprintManager.hasEnrolledFingerprints();
     }
 
+    /**
+     * Enrolling process for a new cryptographic entry signed by a fingerprint
+     * Encrypts the provided data under the alias as a key, and signs the cipher with a fingerprint
+     */
     public void encrypt(FragmentManager fragmentManager, final String alias, final String data, final ICryptoAuthListener callbacks) {
         try {
             final Cipher cipher = CryptoUtils.getCipher();
@@ -81,7 +85,7 @@ public class FingerprintUtils {
                 writeIv(alias, iv);
 
                 // Show the dialog
-                signCryptoWithFingerprint(fragmentManager, cipher, new IFingerprintResultListener() {
+                signCryptoWithFingerprint(fragmentManager, cipher, new FingerprintScanDialog.IFingerprintScanListener() {
                     @Override
                     public void onSuccess() {
                         try {
@@ -104,7 +108,14 @@ public class FingerprintUtils {
         }
     }
 
+    /**
+     * Retrieval process for an existing cryptographic entry signed by a fingerprint
+     * Decrypts the data stored under the alias as a key, and signs the cipher with a fingerprint
+     */
     public void decrypt(FragmentManager fragmentManager, String alias, final ICryptoAuthListener callbacks) {
+        if (!CryptoUtils.hasKey(alias))
+            return;
+
         try {
             final Cipher cipher = CryptoUtils.getCipher();
             final byte[] iv = readIv(alias);
@@ -112,7 +123,7 @@ public class FingerprintUtils {
             if (CryptoUtils.initCipher(cipher, alias, Cipher.DECRYPT_MODE, iv)) {
                 final byte[] encryptedPassword = readEncryptedPassword(alias);
 
-                signCryptoWithFingerprint(fragmentManager, cipher, new IFingerprintResultListener() {
+                signCryptoWithFingerprint(fragmentManager, cipher, new FingerprintScanDialog.IFingerprintScanListener() {
                     @Override
                     public void onSuccess() {
                         try {
@@ -135,12 +146,14 @@ public class FingerprintUtils {
         }
     }
 
-    private void signCryptoWithFingerprint(FragmentManager manager, Cipher cipher, IFingerprintResultListener callback) {
+    private void signCryptoWithFingerprint(FragmentManager manager, Cipher cipher, FingerprintScanDialog.IFingerprintScanListener callback) {
         FingerprintManager.CryptoObject cryptoObject = new FingerprintManager.CryptoObject(cipher);
-        FingerprintAuthenticationDialogFragment fragment = new FingerprintAuthenticationDialogFragment();
+        FingerprintScanDialog fragment = FingerprintScanDialog.newInstance(
+                "Scan Fingerprint", "Touch sensor", "Fingerprint recognised", "Fingerprint not recognised. Try again.",
+                callback
+        );
         fragment.setCryptoObject(cryptoObject);
-        fragment.setListener(callback);
-        fragment.show(manager, FingerprintAuthenticationDialogFragment.TAG);
+        fragment.show(manager, FingerprintScanDialog.TAG);
     }
 
     private void writeIv(String alias, byte[] iv) throws IOException {
@@ -170,10 +183,6 @@ public class FingerprintUtils {
         void onDecrypted(String cryptoResult);
         void onFailure();
         void onKeystoreInvalidated();
-    }
-
-    public interface IFingerprintResultListener {
-        void onSuccess();
     }
 
     public interface IFingerprintListener {

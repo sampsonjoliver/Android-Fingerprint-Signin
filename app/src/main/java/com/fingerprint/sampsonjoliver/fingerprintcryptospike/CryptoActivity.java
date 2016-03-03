@@ -31,8 +31,6 @@ import static android.Manifest.permission.USE_FINGERPRINT;
  * A login screen that offers login via email/password.
  */
 public class CryptoActivity extends AppCompatActivity implements FingerprintUtils.ICryptoAuthListener {
-    private static final String STORAGE_FILE_NAME = "credentials";
-
     private AutoCompleteTextView mEmailView;
     private EditText mPasswordView;
     private Button encryptBtn;
@@ -78,6 +76,8 @@ public class CryptoActivity extends AppCompatActivity implements FingerprintUtil
             public void onClick(View v) {
                 if (isFingerprintAuthAvailable()) {
                     String email = mEmailView.getText().toString();
+                    if (!CryptoUtils.hasKey(email))
+                        Toast.makeText(CryptoActivity.this, "Key does not exist", Toast.LENGTH_SHORT).show();
                     fingerprintUtils.decrypt(getFragmentManager(), email, CryptoActivity.this);
                 }
             }
